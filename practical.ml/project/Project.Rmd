@@ -1,0 +1,104 @@
+---
+title: "CourseProject"
+author: "Ken Hironaka"
+date: "05/21/2015"
+output: html_document
+---
+
+# Introduction
+
+With the advent of smart personal devices like Fitbit, Nike FuelBand, etc., we now have access to large amounts of personal activity big data. The purpose of this exercise is to determine whether we can apply machine learning to identify now just  *how much* activity is done, but *how well* it is done. Specifically, when provided data on how people have done barbell lifts correctly and incorrectly in 5 different ways, the goal is to see if we can build predictors that can auto detect the ways it has been done.
+
+# Analysis
+
+## Libraries
+The following libraries were used as part of this exercise.
+
+```
+library(caret)
+library(corrplot)
+library(randomForest)
+```
+```{r,echo=FALSE}
+library(caret)
+library(corrplot)
+library(randomForest)
+```
+
+## Data Cleaning
+Before any analysis or training can be performed, the data must be cleaned in such a way that it can easily be consumed. The input training data has many features that are either empty or 'NA'. The first step is to remove such features. Moreover, the input also contains many features like **user_name** and **raw_timestamp_X** that are not useful for training purposes. They also need to be removed from the training set. This is also important for reducing the training computational complexity. This cleaning yielded a total of **52** features.
+```
+data = read.csv("pml-training.csv", na.strings = c("NA", "", " "))
+data_clean = data[,is.na(data[1,]) == 0]
+data_clean = data_clean[,-(1:7)]
+```
+
+## Training Data Analysis
+It is first important to identify if there are any skewed distribution for the attribute that will be predicted, **classe**. Otherwise, aside from precision, recall, accuracy, some analysis using F-1 score will also be necessary. Fortunately, the data set indicates that **classe** is evenly distributed.
+
+```{r,echo=FALSE}
+load("data_clean.dat")
+histogram(data_clean$classe)
+```
+
+Moreover, it is also important to check that there are no over correlation among features in the data. The correlation matrix indicates that aside from a small number of exceptions, in general this is not a concern.
+```{r,echo=FALSE}
+corrplot(cor(data_clean[,-length(data_clean)]))
+```
+
+# Training
+For the learning algorithm, Random Forest will be employed because of below
+* There is little worry for over correlation among features
+* Random Forest can automatically adapt to non-linear models, unlike in linear logistic regression where the complexity of the model has to be pre-defined
+
+For reproducibility, the random seed was also set at the beginning of the training.
+The input data was randomly split based on **classe** into training and validation data sets.
+
+```
+inTrain = createDataPartition(data_clean$classe, p =0.75, list = F)
+training = data_clean[inTrain,]
+validation = data_clean[-inTrain,]
+```
+
+Training was done using all remaining features in the data set.
+```
+fit <- train(classe ~ ., data = training, method = "rf")
+```
+Details of the resulting model are below.
+```{r}
+load("fit.dat")
+print(fit)
+```
+
+## Cross Validation
+The model was cross validated using the validation data set and a confusion matrix was generated.
+Accuracy of **0.9941** and the resulting matrix indicates that it is a good fit.
+```{r}
+load("validation.dat")
+confusionMatrix(predict(fit, validation), validation$classe)
+```
+
+# Prediction
+
+A separate data set for prediction was loaded and was used to predict the **classe**.
+Unlike the training set, the data set does not need to be cleaned because the extra features will simply be ignored.
+
+Each of the predictions were written to a seprate file.
+
+```
+prediction = predict(fit, validation)
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(prediction)
+```
+
+# Conclusion
+The result showed that the given input data set was sufficient for predicting the manner in which a person performed barbell lifts. Moreever the result also showed that without more complicated methods like combining predictors, the prediction model can predict highly accurately.
+
