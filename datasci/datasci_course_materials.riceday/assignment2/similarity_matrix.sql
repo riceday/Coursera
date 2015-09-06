@@ -1,0 +1,1 @@
+select similarity from (select t1.docid as docid1, t2.docid as docid2, sum(t1.count * t2.count) as similarity from frequency t1, frequency t2 where t1.term = t2.term group by docid1, docid2) where docid1 = '10080_txt_crude' and docid2 = '17035_txt_earn';
